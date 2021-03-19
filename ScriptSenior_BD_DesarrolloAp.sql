@@ -1,3 +1,7 @@
+/*
+	nombre: Jose Alberto Sanchez Nava
+    Sistema: Rinko
+*/
 drop database desarrolloApp; 
 create database desarrolloApp;
 use desarrolloApp;
@@ -31,7 +35,7 @@ create table Empleados(
 	idEmpleado INT NOT NULL primary key default 10000,
     nombreEmpleado varchar(80) not null,
     edad int not null,
-    sexo char(1) not null,
+    sexo varchar(6) not null,
     idRolEmpleado int not null,
     idTipoEmpleado int not null,
     statusEmpleado int not null,
@@ -39,6 +43,7 @@ create table Empleados(
     foreign key(idRolEmpleado) references Roles(idRol),
     foreign key(idTipoEmpleado) references TipoEmpleados(idTipoEmpleado)
 );
+
 
 create table Sueldos(
 idSueldBase int not null auto_increment,
@@ -48,9 +53,12 @@ pagoXEntrega double default 0.00,
 bonoHora  double default 0.00,
 valeDespensa int,
 sueldoBase double default 0.00,
+ISRRetencion int not null default 9,
+ISRAdicional int not  null default 0,
 primary key (idSueldBase,idEmpleado),
 foreign key(idEmpleado) references Empleados(idEmpleado)
 );
+
 
 create table movimientos
 (
@@ -61,32 +69,17 @@ create table movimientos
     subTotalEntregaDiaria double default 0.00,
     subTotalBonoHora double default 0.00,
 	subTotalSueldoDiario double default 0.00,
-    fechaCaptura datetime,
+    fechaCaptura date,
     turno int not null
 );
 
-create table ingresos(
-idIngresos int not null primary key,
-idEmpleado int not null,
-subTotalDiario double default 0.00,
-despensa int default 4 
-);
 
-create table retencion(
-idRetencion int not null primary key,
+create table nominamensual(
+idnominamensual int not null primary key auto_increment,
 idEmpleado int not null,
-ISRRetencion int not null default 9,
-ISRAdicional int not  null default 4
-);
-
-create table nomina(
-idNomina int not null primary key,
-idEmpleado int not null,
-sueldo double  not null default 0.00,
-totalDespensa double not null default 0.00,
-ISRImporte double not null default 0.00,
-subtotal double not null  default 0.00,
-totalPagar double not null  default 0.00 
+Ingresos double not null default 0.00,
+Deducciones double default 0.00,
+SueldoMensual double default 0.00 
 );
 
 
@@ -97,15 +90,16 @@ DROP procedure IF EXISTS `sp_registra_empleado`;
 
 DELIMITER $$
 USE `desarrolloapp`$$
-CREATE PROCEDURE `sp_registra_empleado`(in pIdEmpleado int, in pNombreEmpleado varchar(80),in pEdad int ,in pSexo char(1),in pRolEmpleado int,in pTipoEmpleado int,
+CREATE PROCEDURE `sp_registra_empleado`(in pIdEmpleado int, in pNombreEmpleado varchar(80),in pEdad int ,in pSexo varchar(8),in pRolEmpleado int,in pTipoEmpleado int,
 in pSueldoBaseHora double,in pPagoXEntrega double, in pBonoHora double, in pValeDespensa double,in pSueldoBase double,
  out codigoRespuesta char(5), out mensaje varchar(60))
 BEGIN
+
 insert into Empleados(idEmpleado,nombreEmpleado,edad,sexo,idRolEmpleado,idTipoEmpleado,statusEmpleado) 
 values(pIdEmpleado,pNombreEmpleado,pEdad,pSexo,pRolEmpleado,pTipoEmpleado,1);
 
-insert into Sueldos(idEmpleado,sueldoBaseHora,pagoXEntrega,bonoHora,valeDespensa,sueldoBase)
-values(pIdEmpleado,pSueldoBaseHora,pPagoXEntrega,pBonoHora,pValeDespensa,pSueldoBase);
+insert into Sueldos(idEmpleado,sueldoBaseHora,pagoXEntrega,bonoHora,valeDespensa,sueldoBase,ISRRetencion,ISRAdicional)
+values(pIdEmpleado,pSueldoBaseHora,pPagoXEntrega,pBonoHora,pValeDespensa,pSueldoBase,9,3);
 
 set codigoRespuesta='00000';
 set mensaje='registro exitoso';
@@ -157,10 +151,6 @@ set codigoRespuesta='00000';
 set mensaje="Actualizacion de datos Correctamente";
 END$$
 DELIMITER ;
-
-select * from sueldos
-where idempleado=10001
-1	10001	30	5	10	4	7200
 
 -- CALL `desarrolloapp`.`sp_actualiza_empleado`(10009,'JOSE MEDINA MEDINA', 3,1,40.00,10.00,9600.00,@codigoRespuesta ,@mensaje);
 
@@ -250,55 +240,29 @@ END$$
 DELIMITER ;
 
 
-
  -- CALL `desarrolloapp`.`sp_registra_movimientos`(10001,'JOSE',5,current_date(),1,@codigoRespuesta ,@mensaje);
  
 
+ -- CALL `desarrolloapp`.`sp_consulta_movimientos`(10003);
 
 USE `desarrolloapp`;
 DROP procedure IF EXISTS `sp_consulta_movimientos`;
 
 DELIMITER $$
 USE `desarrolloapp`$$
-CREATE PROCEDURE `sp_consulta_movimientos`(in Id_Empleado int,out Movimiento int,
-											out Empleado int ,out Nombre varchar(80),
-                                            out SubTotalEntrega double, out SubTotalBono double,
-                                            out SubTotalSueldoDiario double, out Fecha varchar(60))
+CREATE PROCEDURE `sp_consulta_movimientos`(in Id_Empleado int)
 BEGIN
 
 select mov.idMovimientos,emp.idEmpleado,emp.nombreEmpleado,mov.subTotalEntregaDiaria,mov.subTotalBonoHora,mov.subTotalSueldoDiario,mov.fechaCaptura from empleados
 as emp, movimientos as mov
 where emp.idEmpleado=Id_Empleado
 and emp.statusEmpleado=1
+and emp.idEmpleado=mov.idEmpleado
 order by emp.idEmpleado;
 
 END$$
 DELIMITER ;
 
-
-
-
-
-CALL `desarrolloapp`.`sp_consulta_movimientos`(10001,@Movimiento,
-											 @Empleado  , @Nombre,
-                                             @SubTotalEntrega ,  @SubTotalBono ,
-                                             @SubTotalSueldoDiario ,  @Fecha)
- 
-
-
-
-/*
-select emp.idEmpleado,emp.NombreEmpleado,sd.pagoXEntrega,sd.bonoHora,emp.jornadaLaboral,mov.subTotalBonoEntregaDiaria,
-mov.subTotalBonoHora,mov.subTotalSueldoDiario  from sueldos as sd, empleados as emp, movimientos as mov
-where sd.idEmpleado=10003
-and sd.idEmpleado=emp.idempleado
-and emp.idEmpleado=sd.idEmpleado
-and emp.idEmpleado=mov.idEmpleado;
-
-select * from movimientos
-where idEmpleado=10001;
-
-*/
 
 
 USE `desarrolloapp`;
@@ -320,53 +284,73 @@ DELIMITER ;
 
 
 
+USE `desarrolloapp`;
+DROP procedure IF EXISTS `sp_consultar_reporte_nomina`;
 
--- CALL `desarrolloapp`.`sp_eliminar_movimiento`(1,10001,@codigoRespuesta ,@mensaje);
+DELIMITER $$
+USE `desarrolloapp`$$
+CREATE PROCEDURE `sp_consultar_reporte_nomina`(in pIdEmpleado int,out numEmpleado int, out nombreEmpleado varchar(80),
+												out ingresos double,out deducciones double, out totalPagarEmpleado double)
+BEGIN
+declare empleado int;
+declare nombre varchar(80);
+declare despensa double;
+declare totalDespensa double;
+declare subTotalRetencion double;
+
+declare sueldo double;
+declare sueldoMensualEmpleado double;
+declare isrRetencion double;
+declare isrAdicional double;
+declare subTotalSueldo double;
+declare montoMax double;
+declare totalPagar double;
+declare totalISR double;
+--  select * from sueldos
+set montoMax=16000.00;
+
+SELECT 
+    mov.idEmpleado,
+    mov.nombreEmpleado,
+    sd.valeDespensa,
+    sd.ISRRetencion,
+    sd.ISRAdicional,
+    SUM(sd.sueldoBase) 
+INTO empleado , nombre , despensa , isrRetencion , isrAdicional , sueldo FROM
+    movimientos AS mov,
+    sueldos AS sd
+WHERE
+    mov.idEmpleado = pIdEmpleado
+        AND mov.idEmpleado = sd.idEmpleado;
+
+-- calcular ingreso
+set totalDespensa=(despensa/100) * sueldo;
+
+set ingresos=sueldo+totalDespensa;
+IF sueldo < montoMax THEN 
+	set isrAdicional=0.00;
+ELSE
+	set isrAdicional=3.00;
+END IF;
+
+-- calcular deduccion.
+set subTotalRetencion= ((isrRetencion+isrAdicional)/100)* sueldo;
+
+-- calcular sueldo mensual empleado
+
+set deducciones=subTotalRetencion;
+
+set subTotalSueldo= (sueldo-deducciones)+totalDespensa ;
+-- set totalPagar= totalDespensa;
+
+set totalPagarEmpleado= subTotalSueldo;
+
+insert into nominamensual(idEmpleado,Ingresos,Deducciones,SueldoMensual)
+values(pIdEmpleado,ingresos,deducciones,totalPagarEmpleado);
 
 
-/*
-delete from movimientos
-where idMovimientos=7 and idEmpleado=10001;
-*/
+set numEmpleado=pIdEmpleado;
+set nombreEmpleado=nombre;
 
--- CALL `desarrolloapp`.`sp_consulta_empleado`(@Empleado,@Nombre, @Edad,@Sexo,@Rol,@Tipo);
-/*
-
-select emp.idEmpleado,emp.nombreEmpleado,emp.edad,emp.sexo,rol.descripcionRol,tp.tipoDescripcion,sd.sueldoBaseHora,sd.pagoXEntrega,sd.bonoHora,sd.valeDespensa from empleados
-as emp, Roles as rol, TipoEmpleados as tp, sueldos as sd
-where emp.idRolEmpleado=rol.idRol
-and emp.idTipoEmpleado=tp.idTipoEmpleado
-and emp.statusEmpleado=1
-and emp.idEmpleado=sd.idEmpleado
-order by emp.idEmpleado;
-*/
-
-
-
-/*
-
-select su.idEmpleado,emp.nombreEmpleado,emp.sexo,rol.idRol,rol.descripcionRol,tpEmp.idTipoEmpleado ,tpEmp.tipoDescripcion, su.sueldoBase,su.bonoHora,su.valeDespensa 
-from empleados as emp, sueldos as su, Roles rol, TipoEmpleados as tpEmp
-where emp.idEmpleado=su.idEmpleado
-and emp.idRolEmpleado=rol.idRol
-and emp.idTipoEmpleado=tpEmp.idTipoEmpleado;
-
-select emp.idEmpleado,emp.nombreEmpleado,emp.edad,emp.sexo,rol.descripcionRol,tp.tipoDescripcion from empleados
-as emp, Roles as rol, TipoEmpleados as tp
-where emp.idRolEmpleado=rol.idRol
-and emp.idTipoEmpleado=tp.idTipoEmpleado
-and emp.statusEmpleado=1
-order by emp.idEmpleado;
-
-
-
-
-select * from TipoEmpleados;
-
-select * from empleados;
-select * from TipoEmpleados;
-select * from sueldos;
-
-*/
-
-select * from movimientos
+END$$
+DELIMITER ;
